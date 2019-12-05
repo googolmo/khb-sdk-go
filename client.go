@@ -25,5 +25,6 @@ func jsonRequest(body interface{}, token string) (*http.Response, error) {
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("User-Agent", userAgent)
 	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Accept-Encoding", "gzip")
 	return client.Do(request)
 }

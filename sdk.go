@@ -1,14 +1,16 @@
 package khb
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/url"
 	"strings"
 )
 
-const version = "1.0.0"
+const version = "1.0.1"
 
 const (
 	// TypeJpg result image type is jpg
@@ -96,26 +98,35 @@ func (screenshot *Screenshot) invoke(token string) (*Result, error) {
 		return nil, err
 	}
 	defer response.Body.Close()
+	var reader io.ReadCloser
+	switch response.Header.Get("Content-Encoding") {
+	case "gzip":
+		_reader, _err := gzip.NewReader(response.Body)
+		if _err != nil {
+			return nil, _err
+		}
+		reader = _reader
+		defer reader.Close()
+	default:
+		reader = response.Body
+	}
 	if response.StatusCode >= 500 {
 		return nil, &APIError{
 			Code:    response.StatusCode,
 			Message: response.Status,
 		}
-	} else if response.StatusCode >= 400 {
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return nil, err
-		}
+	}
+	body, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode >= 400 {
 		var errResp APIError
 		if err := json.Unmarshal(body, &errResp); err != nil {
 			return nil, err
 		}
 		return nil, &errResp
 		// reponse.Body
-	}
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return nil, err
 	}
 	var br basicResponse
 	if err := json.Unmarshal(body, &br); err != nil {
